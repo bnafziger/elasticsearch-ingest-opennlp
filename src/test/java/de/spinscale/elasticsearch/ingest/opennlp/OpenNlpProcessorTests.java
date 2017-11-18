@@ -54,7 +54,7 @@ public class OpenNlpProcessorTests extends ESTestCase {
 
     public void testThatExtractionsWork() throws Exception {
         OpenNlpProcessor processor = new OpenNlpProcessor(service, randomAlphaOfLength(10), "source_field", "target_field",
-                new HashSet<>(Arrays.asList("names", "dates", "locations")));
+                new HashSet<>(Arrays.asList("names", "dates", "locations")), false); /*bsn*/
 
         Map<String, Object> entityData = getIngestDocumentData(processor);
 
@@ -65,7 +65,7 @@ public class OpenNlpProcessorTests extends ESTestCase {
 
     public void testThatFieldsCanBeExcluded() throws Exception {
         OpenNlpProcessor processor = new OpenNlpProcessor(service, randomAlphaOfLength(10), "source_field", "target_field",
-                new HashSet<>(Arrays.asList("dates")));
+                new HashSet<>(Arrays.asList("dates")), false); /*bsn*/
 
         Map<String, Object> entityData = getIngestDocumentData(processor);
 
@@ -76,7 +76,7 @@ public class OpenNlpProcessorTests extends ESTestCase {
 
     public void testThatExistingValuesAreMergedWithoutDuplicates() throws Exception {
         OpenNlpProcessor processor = new OpenNlpProcessor(service, randomAlphaOfLength(10), "source_field", "target_field",
-                new HashSet<>(Arrays.asList("names", "dates", "locations")));
+                new HashSet<>(Arrays.asList("names", "dates", "locations")), false); /*bsn*/
 
         IngestDocument ingestDocument = getIngestDocument();
 
