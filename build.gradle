@@ -15,6 +15,7 @@ plugins {
   id "de.undercouch.download" version "3.2.0"
 }
 
+
 import de.undercouch.gradle.tasks.download.Download
 
 group = 'de.spinscale.elasticsearch.plugin.ingest'
@@ -38,6 +39,13 @@ esplugin {
 dependencies {
   compile 'org.apache.opennlp:opennlp-tools:1.8.0'
 }
+
+
+//bsn
+test {
+  testClassesDir = project.sourceSets.test.output.classesDir
+}
+//bsn
 
 bundlePlugin {
   from('src/test/resources/models') {
@@ -98,9 +106,11 @@ artifacts {
     archives javadocJar, sourcesJar
 }
 
-signing {
-    sign configurations.archives
-}
+//bsn
+//signing {
+//    sign configurations.archives
+//}
+//bsn
 
 nexusStaging {
   packageGroup = "de.spinscale"
@@ -111,13 +121,15 @@ uploadArchives {
     mavenDeployer {
       beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
 
-      repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
-        authentication(userName: ossrhUsername, password: ossrhPassword)
-      }
-
-      snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
-        authentication(userName: ossrhUsername, password: ossrhPassword)
-      }
+      //bsn
+      //repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+      //  authentication(userName: ossrhUsername, password: ossrhPassword)
+      //}
+      
+      //snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
+      //  authentication(userName: ossrhUsername, password: ossrhPassword)
+      //}
+      //bsn
 
       pom.project {
         name 'Elasticsearch Ingest OpenNLP Detection Plugin'
