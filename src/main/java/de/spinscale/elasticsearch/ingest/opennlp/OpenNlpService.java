@@ -15,7 +15,16 @@
  *
  */
 
+/* bsn 8/16/2017 add ignoreMissing DOCCAT processing*/
+
 package de.spinscale.elasticsearch.ingest.opennlp;
+
+
+/*bsn*/
+import opennlp.tools.doccat.DoccatModel;
+import opennlp.tools.doccat.DocumentCategorizerME;
+/*bsn*/
+
 
 import opennlp.tools.namefind.NameFinderME;
 import opennlp.tools.namefind.TokenNameFinderModel;
@@ -38,6 +47,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/*bsn*/
+/*import org.apache.commons.lang; StringUtils*/
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+/*bsn*/
+
+
 /**
  * OpenNLP name finders are not thread safe, so we load them via a thread local hack
  */
@@ -50,6 +66,11 @@ public class OpenNlpService {
     private ThreadLocal<TokenNameFinderModel> threadLocal = new ThreadLocal<>();
     private Map<String, TokenNameFinderModel> nameFinderModels = new ConcurrentHashMap<>();
 
+    /*bsn*/
+    private ThreadLocal<DoccatModel> doccatThreadLocal = new ThreadLocal<>(); 
+    private Map<String, DoccatModel> doccatModels = new ConcurrentHashMap<>(); 
+    /*bsn*/
+
     public OpenNlpService(Path configDirectory, Settings settings) {
         this.logger = Loggers.getLogger(getClass(), settings);
         this.configDirectory = configDirectory;
@@ -60,18 +81,52 @@ public class OpenNlpService {
         return IngestOpenNlpPlugin.MODEL_FILE_SETTINGS.get(settings).getAsMap().keySet();
     }
 
+    /*bsn*/
+    public boolean containsIgnoreCase( String haystack, String needle ) {
+      if(needle.equals(""))
+        return true;
+      if(haystack == null || needle == null || haystack .equals(""))
+        return false; 
+
+      Pattern p = Pattern.compile(needle,Pattern.CASE_INSENSITIVE+Pattern.LITERAL);
+      Matcher m = p.matcher(haystack);
+      return m.find();
+    }
+    /*bsn*/
+
     protected OpenNlpService start() {
         StopWatch sw = new StopWatch("models-loading");
+
         Map<String, String> settingsMap = IngestOpenNlpPlugin.MODEL_FILE_SETTINGS.get(settings).getAsMap();
+
         for (Map.Entry<String, String> entry : settingsMap.entrySet()) {
             String name = entry.getKey();
             sw.start(name);
-            Path path = configDirectory.resolve(entry.getValue());
-            try (InputStream is = Files.newInputStream(path)) {
-                nameFinderModels.put(name, new TokenNameFinderModel(is));
-            } catch (IOException e) {
-                logger.error((Supplier<?>) () -> new ParameterizedMessage("Could not load model [{}] with path [{}]", name, path), e);
+
+            /*logger.info("model name [{}] ", name);*/
+
+            if( !containsIgnoreCase( name, "category") ) { 
+                logger.info("ner model name [{}] ", name);
+                Path path = configDirectory.resolve(entry.getValue());
+                try (InputStream is = Files.newInputStream(path)) {
+                    nameFinderModels.put(name, new TokenNameFinderModel(is));
+                } catch (IOException e) {
+                    logger.error((Supplier<?>) () -> new ParameterizedMessage("Could not load model [{}] with path [{}]", name, path), e);
+                }
             }
+
+            /*bsn*/
+            if( containsIgnoreCase( name, "category") ) { 
+                logger.info("doccat model name [{}] ", name);
+                Path path = configDirectory.resolve(entry.getValue());
+                try (InputStream is = Files.newInputStream(path)) {
+                    doccatModels.put(name, new DoccatModel(is));
+                } catch (IOException e) {
+                    logger.error((Supplier<?>) () -> new ParameterizedMessage("Could not load model [{}] with path [{}]", name, path), e);
+                }
+            }
+            /*bsn*/
+
             sw.stop();
         }
 
@@ -102,4 +157,27 @@ public class OpenNlpService {
             threadLocal.remove();
         }
     }
+
+    /*bsn*/
+    public Set<String> categorize(String content, String field) {
+        try {
+            if (!doccatModels.containsKey(field)) {
+                throw new ElasticsearchException("Could not find field [{}], possible values {}", field, doccatModels.keySet());
+            }
+            DoccatModel catModel = doccatModels.get(field);
+            if (doccatThreadLocal.get() == null || !doccatThreadLocal.get().equals(catModel)) {
+                doccatThreadLocal.set(catModel);
+            }
+
+            String[] tokens = SimpleTokenizer.INSTANCE.tokenize(content);
+            DocumentCategorizerME categorizer = new DocumentCategorizerME(catModel);
+            double[] distribution = categorizer.categorize(tokens);
+            String category = categorizer.getBestCategory(distribution);
+            return Sets.newHashSet(category);
+        } finally {
+            doccatThreadLocal.remove();
+        }
+    }
+    /*bsn*/
+
 }
